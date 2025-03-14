@@ -1,3 +1,97 @@
+# AnyDoor: Zero-shot Object-level Image Customization
+
+This repository contains code for AnyDoor, a diffusion-based model for object-level image customization.
+
+## Docker Setup (Custom Implementation)
+This fork provides a Docker-based setup for easy deployment and experimentation with AnyDoor.
+
+### Prerequisites
+- Docker and Docker Compose
+- NVIDIA GPU with CUDA support
+- [VITON-HD dataset](https://github.com/shadow2496/VITON-HD) (for inference tests)
+
+### Model Preparation
+1. Download pre-trained models:
+```
+# Download from Yandex Disk
+https://disk.yandex.ru/d/O43ck7UPxH4MBw
+https://modelscope.cn/models/bdsqlsz/AnyDoor-Pruned/file/view/master?fileName=epoch%253D1-step%253D8687-pruned.ckpt&status=2
+```
+
+2. Place the downloaded models in the `models/` directory
+
+### Docker Configuration (Already Applied)
+The repository includes a Docker setup with these optimizations:
+- Only copies environment.yaml first to leverage Docker layer caching
+- Mounts your local code directory instead of copying it (for faster development)
+- Creates result directories that are accessible from your host machine
+
+#### Volume Mounts Explained
+Our docker-compose.yaml includes several important volume mounts:
+
+1. `./models:/usr/src/app/models` - Mounts the local models directory containing pre-trained weights into the container. This allows the models to be stored outside the container and shared between runs.
+
+2. `./test:/usr/src/app/test` - Mounts your VITON-HD dataset directory. You need to modify this path to point to where your dataset is stored locally. The container accesses this data without needing to copy it.
+
+3. `./:/usr/src/app` - Mounts your entire local code directory into the container. This is crucial for development as any code changes you make locally are immediately available inside the container without rebuilding.
+
+4. `./results:/usr/src/app/VITONGEN` - Mounts a local results directory to the output directory in the container. Generated images will be saved here, making them accessible on your host machine.
+
+### Running Options
+
+#### Option 1: VITON-HD Test Inference (Current Configuration)
+Unzip test.zip with VITON-HD dataset test directory and place it in the root directory of this repository.
+The current configuration in this repository is set up to run inference on VITON-HD test pairs:
+
+```bash
+docker-compose up
+```
+
+This will process the predefined test pairs:
+- 08909_00.jpg + 02783_00.jpg
+- 00891_00.jpg + 01430_00.jpg
+- 03615_00.jpg + 09933_00.jpg
+- 07445_00.jpg + 06429_00.jpg
+- 07573_00.jpg + 11791_00.jpg
+- 10549_00.jpg + 01260_00.jpg
+
+Results will be saved in the `./results` directory.
+
+#### Option 2: Gradio Demo
+To switch back to running the Gradio demo:
+
+1. Edit the Dockerfile:
+```dockerfile
+# Change this line
+CMD ["conda", "run", "--no-capture-output", "-n", "anydoor", "python", "run_inference.py"]
+# To this
+CMD ["conda", "run", "--no-capture-output", "-n", "anydoor", "python", "run_gradio_demo.py"]
+```
+
+2. Rebuild and run:
+```bash
+docker-compose build
+docker-compose up -d
+```
+
+3. Access the Gradio demo at: http://localhost:7860
+
+### Development Workflow
+
+For faster development iterations:
+
+1. Make changes to your code - they will be automatically reflected in the container
+2. If needed, restart the container: `docker-compose restart`
+3. To run a specific command or script in the container:
+```bash
+docker exec anydoor conda run --no-capture-output -n anydoor python your_script.py
+```
+
+4. Monitor container logs:
+```bash
+docker logs -f anydoor
+```
+
 <p align="center">
 
   <h2 align="center">AnyDoor: Zero-shot Object-level Image Customization</h2>
@@ -40,7 +134,6 @@
 * **[On-going]** Scale-up the training data and release stronger models as the foundaition model for downstream region-to-region generation tasks.
 * **[On-going]** Release specific-designed models for downstream tasks like virtual tryon, face swap, text and logo transfer, etc.
 
-
 ## Installation
 Install with `conda`: 
 ```bash
@@ -59,6 +152,7 @@ pip install pycocotools -i https://pypi.douban.com/simple
 
 pip install lvis
 ```
+
 ## Download Checkpoints
 Download AnyDoor checkpoint: 
 * [ModelScope](https://modelscope.cn/models/damo/AnyDoor/files)
@@ -100,12 +194,7 @@ Our evaluation data for DreamBooth an COCOEE coud be downloaded at Google Drive:
 
 
 ## Gradio demo 
-Currently, we suport local gradio demo. To launch it, you should firstly modify `/configs/demo.yaml` for the path to the pretrained model, and `/configs/anydoor.yaml` for the path to DINOv2(line 83). 
 
-Afterwards, run the script:
-```bash
-python run_gradio_demo.py
-```
 The gradio demo would look like the UI shown below:
 
 * 📢 This version requires users to annotate the mask of the target object, too coarse mask would influence the generation quality. We plan to add mask refine module or interactive segmentation modules in the demo.

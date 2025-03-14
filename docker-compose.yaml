@@ -1,0 +1,18 @@
+services:
+  anydoor:
+    build: .
+    container_name: anydoor
+    volumes:
+      - ./models:/usr/src/app/models
+      - ./test:/usr/src/app/test
+      - ./results:/usr/src/app/VITONGEN
+      - ./:/usr/src/app
+    ports:
+      - "8080:7860"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

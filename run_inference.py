@@ -13,6 +13,7 @@ cv2.ocl.setUseOpenCL(False)
 import albumentations as A
 from omegaconf import OmegaConf
 from PIL import Image
+import os
 
 
 save_memory = False
@@ -252,43 +253,80 @@ if __name__ == '__main__':
     
     cv2.imwrite(save_path, vis_image [:,:,::-1])
     '''
-    #'''
-    # ==== Example for inferring VITON-HD Test dataset ===
+    
+    # Using predefined test pairs for VITON-HD Test dataset
+    # ==== Example for inferring VITON-HD Test dataset with specific pairs ===
 
-    from omegaconf import OmegaConf
-    import os 
     DConf = OmegaConf.load('./configs/datasets.yaml')
     save_dir = './VITONGEN'
     if not os.path.exists(save_dir):
         os.mkdir(save_dir)
 
-    test_dir = DConf.Test.VitonHDTest.image_dir
-    image_names = os.listdir(test_dir)
+    # Base directory where the VITON-HD dataset is located
+    base_dir = '/usr/src/app/test'
     
-    for image_name in image_names:
-        ref_image_path = os.path.join(test_dir, image_name)
-        tar_image_path = ref_image_path.replace('/cloth/', '/image/')
-        ref_mask_path = ref_image_path.replace('/cloth/','/cloth-mask/')
-        tar_mask_path = ref_image_path.replace('/cloth/', '/image-parse-v3/').replace('.jpg','.png')
-
+    # Define the official test pairs (person_image, cloth_image)
+    test_pairs = [
+        ('08909_00.jpg', '02783_00.jpg'),
+        ('00891_00.jpg', '01430_00.jpg'),
+        ('03615_00.jpg', '09933_00.jpg'),
+        ('07445_00.jpg', '06429_00.jpg'),
+        ('07573_00.jpg', '11791_00.jpg'),
+        ('10549_00.jpg', '01260_00.jpg')
+    ]
+    
+    print(f"Base directory: {base_dir}")
+    print(f"Directory exists: {os.path.exists(base_dir)}")
+    
+    for person_img, cloth_img in test_pairs:
+        print(f"\nProcessing pair: {person_img} with cloth {cloth_img}")
+        
+        # Define paths for all needed files
+        tar_image_path = os.path.join(base_dir, 'image', person_img)
+        ref_image_path = os.path.join(base_dir, 'cloth', cloth_img)
+        ref_mask_path = os.path.join(base_dir, 'cloth-mask', cloth_img)
+        tar_mask_path = os.path.join(base_dir, 'image-parse-v3', person_img.replace('.jpg', '.png'))
+        
+        print(f"Person image path: {tar_image_path} (exists: {os.path.exists(tar_image_path)})")
+        print(f"Cloth image path: {ref_image_path} (exists: {os.path.exists(ref_image_path)})")
+        print(f"Cloth mask path: {ref_mask_path} (exists: {os.path.exists(ref_mask_path)})")
+        print(f"Person parse path: {tar_mask_path} (exists: {os.path.exists(tar_mask_path)})")
+        
+        if not all([os.path.exists(p) for p in [ref_image_path, tar_image_path, ref_mask_path, tar_mask_path]]):
+            print("Warning: Some files do not exist. Skipping this pair.")
+            continue
+        
+        # Load images
         ref_image = cv2.imread(ref_image_path)
+        if ref_image is None:
+            print(f"Failed to load cloth image from {ref_image_path}")
+            continue
         ref_image = cv2.cvtColor(ref_image, cv2.COLOR_BGR2RGB)
 
         gt_image = cv2.imread(tar_image_path)
+        if gt_image is None:
+            print(f"Failed to load person image from {tar_image_path}")
+            continue
         gt_image = cv2.cvtColor(gt_image, cv2.COLOR_BGR2RGB)
 
+        # Load masks
         ref_mask = (cv2.imread(ref_mask_path) > 128).astype(np.uint8)[:,:,0]
 
-        tar_mask = Image.open(tar_mask_path ).convert('P')
-        tar_mask= np.array(tar_mask)
-        tar_mask = tar_mask == 5
+        tar_mask = Image.open(tar_mask_path).convert('P')
+        tar_mask = np.array(tar_mask)
+        tar_mask = tar_mask == 5  # 5 is the label for upper body clothing in this dataset
 
+        # Generate the try-on result
         gen_image = inference_single_image(ref_image, ref_mask, gt_image.copy(), tar_mask)
-        gen_path = os.path.join(save_dir, image_name)
-
+        
+        # Save the result
+        gen_path = os.path.join(save_dir, f"{person_img.replace('.jpg', '')}_wearing_{cloth_img}")
+        
+        # Create a visualization image with reference clothing, person, and result side by side
         vis_image = cv2.hconcat([ref_image, gt_image, gen_image])
         cv2.imwrite(gen_path, vis_image[:,:,::-1])
-    #'''
+        
+        print(f"Saved result to {gen_path}")
 
     
 
