@@ -41,7 +41,6 @@ Our docker-compose.yaml includes several important volume mounts:
 
 #### Option 1: VITON-HD Test Inference (Current Configuration)
 Unzip test.zip with VITON-HD dataset test directory and place it in the root directory of this repository.
-The current configuration in this repository is set up to run inference on VITON-HD test pairs:
 
 ```bash
 docker-compose up
